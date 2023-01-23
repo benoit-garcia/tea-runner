@@ -86,6 +86,8 @@ def git_clone(src_url, dest_dir):
     if config.getboolean('runner', 'GIT_SSL_NO_VERIFY', fallback='False') == True:
         environ['GIT_SSL_NO_VERIFY'] = 'true'
     chdir(dest_dir)
+    if config.getboolean('runner', 'GIT_SSH_NO_VERIFY', fallback='False') == True:
+        config_result = run([GIT_BIN, "config", "core.sshCommand", "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"])
     clone_result = run([GIT_BIN, 'clone', src_url, '.'],
                        stdout=None if args.debug else DEVNULL, stderr=None if args.debug else DEVNULL)
     return clone_result.returncode == 0
@@ -138,7 +140,7 @@ def rsync():
         logging.debug('rsync dest path updated to ' + dest)
 
     with TemporaryDirectory() as temp_dir:
-        if git_clone(body['repository']['clone_url'], temp_dir):
+        if git_clone(body['repository']['ssh_url'], temp_dir):
             logging.info('rsync ' + body['repository']['name'] + ' to ' + dest)
             chdir(temp_dir)
             if config.get('rsync', 'DELETE', fallback=''):
@@ -172,7 +174,7 @@ def docker_build():
     body = request.get_json()
 
     with TemporaryDirectory() as temp_dir:
-        if git_clone(body['repository']['clone_url'], temp_dir):
+        if git_clone(body['repository']['ssh_url'], temp_dir):
             logging.info('docker build')
             chdir(temp_dir)
             result = run([DOCKER_BIN, 'build', '-t', body['repository']['name'], '.'],
@@ -189,7 +191,7 @@ def terraform_plan():
     body = request.get_json()
 
     with TemporaryDirectory() as temp_dir:
-        if git_clone(body['repository']['clone_url'], temp_dir):
+        if git_clone(body['repository']['ssh_url'], temp_dir):
             logging.info('terraform init')
             chdir(temp_dir)
             result = run([TF_BIN, 'init', '-no-color'],
@@ -209,7 +211,7 @@ def terraform_plan():
 def terraform_apply():
     body = request.get_json()
     with TemporaryDirectory() as temp_dir:
-        if git_clone(body['repository']['clone_url'], temp_dir):
+        if git_clone(body['repository']['ssh_url'], temp_dir):
             logging.info('terraform init')
             chdir(temp_dir)
             result = run([TF_BIN, 'init', '-no-color'],
